@@ -11,6 +11,7 @@ export type PublicTraining = {
 };
 
 export type PublicAttendee = {
+  id: string;
   name: string;
   status: AttendeeStatus;
 };
@@ -56,6 +57,26 @@ type BackendResponse = {
   };
 };
 
+type BackendActionResponse = {
+  data: {
+    status: AttendeeStatus;
+    message: string;
+    reason?: string;
+  };
+};
+
+export type AttendeeResponseResult = {
+  status: AttendeeStatus;
+  message: string;
+  reason?: string;
+};
+
+function getBackendBaseUrl(): string | null {
+  const baseUrlRaw = process.env.BASE_URL_BACKEND;
+  if (!baseUrlRaw) return null;
+  return baseUrlRaw.replace(/\/+$/, "/"); // Ensure exactly one trailing slash.
+}
+
 function toDateISO(dateYYYYMMDD: string, timeHHmm: string): string {
   // Interpret incoming date/time as UTC to keep UI formatting stable.
   // Example: "2026-04-01" + "14:23" => "2026-04-01T14:23:00.000Z"
@@ -68,9 +89,8 @@ function toDateISO(dateYYYYMMDD: string, timeHHmm: string): string {
 export async function getPublicConfirmationData(
   attendeeId: string
 ): Promise<PublicConfirmationData | null> {
-  const baseUrlRaw = process.env.BASE_URL_BACKEND;
-  if (!baseUrlRaw) return null;
-  const baseUrl = baseUrlRaw.replace(/\/+$/, "/"); // Ensure exactly one trailing slash.
+  const baseUrl = getBackendBaseUrl();
+  if (!baseUrl) return null;
 
   try {
     const res = await fetch(`${baseUrl}trainings/attendees/${attendeeId}`, {
@@ -102,9 +122,66 @@ export async function getPublicConfirmationData(
         confirmedSlots: training.confirmedCount,
       },
       attendee: {
+        id: attendee.id,
         name: attendee.name,
         status: attendee.status,
       },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function acceptAttendeeInvite(
+  attendeeId: string
+): Promise<AttendeeResponseResult | null> {
+  const baseUrl = getBackendBaseUrl();
+  if (!baseUrl) return null;
+
+  try {
+    const res = await fetch(`${baseUrl}trainings/attendees/${attendeeId}/accept`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as BackendActionResponse;
+    if (!json?.data?.status || !json?.data?.message) return null;
+    return {
+      status: json.data.status,
+      message: json.data.message,
+      reason: json.data.reason,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function declineAttendeeInvite(
+  attendeeId: string,
+  reason: string
+): Promise<AttendeeResponseResult | null> {
+  const baseUrl = getBackendBaseUrl();
+  if (!baseUrl) return null;
+
+  try {
+    const res = await fetch(`${baseUrl}trainings/attendees/${attendeeId}/decline`, {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ reason }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as BackendActionResponse;
+    if (!json?.data?.status || !json?.data?.message) return null;
+    return {
+      status: json.data.status,
+      message: json.data.message,
+      reason: json.data.reason,
     };
   } catch {
     return null;
