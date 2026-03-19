@@ -20,57 +20,94 @@ export type PublicConfirmationData = {
   attendee: PublicAttendee;
 };
 
-// Mocked data for now. Replace this with a real DB/API call later.
-const TRAININGS_BY_CODE: Record<string, PublicTraining> = {
-  demo: {
-    name: "Capacitación: Seguridad en el trabajo",
-    dateISO: "2026-04-12T12:00:00.000Z",
-    timeHours: "9",
-    location: "Centro de formación",
-    mapsUrl: "https://maps.google.com/?q=Centro%20de%20formaci%C3%B3n",
-    maxSlots: 12,
-    confirmedSlots: 7,
-  },
-  confirmed: {
-    name: "Capacitación: Seguridad en el trabajo",
-    dateISO: "2026-04-12T12:00:00.000Z",
-    timeHours: "9",
-    location: "Centro de formación",
-    mapsUrl: "https://maps.google.com/?q=Centro%20de%20formaci%C3%B3n",
-    maxSlots: 12,
-    confirmedSlots: 8,
-  },
-  declined: {
-    name: "Capacitación: Seguridad en el trabajo",
-    dateISO: "2026-04-12T12:00:00.000Z",
-    timeHours: "9",
-    location: "Centro de formación",
-    mapsUrl: "https://maps.google.com/?q=Centro%20de%20formaci%C3%B3n",
-    maxSlots: 12,
-    confirmedSlots: 6,
-  },
-};
-
-const ATTENDEES_BY_CODE: Record<string, PublicAttendee> = {
-  demo: { name: "Carolina", status: "pending" },
-  confirmed: { name: "Carolina", status: "confirmed" },
-  declined: { name: "Carolina", status: "declined" },
-};
-
-export async function getTrainingByCode(code: string): Promise<PublicTraining | null> {
-  // Keep async to make it easy to replace with DB/API.
-  return TRAININGS_BY_CODE[code] ?? null;
+export function normalizeAttendeeId(code: string): string | null {
+  // The route may receive templated values like "{{1}}<attendeeId>" or extra hex
+  // prefixes (e.g. "7d<attendeeId>"). Regexes with `{24}` + `g` don't return
+  // overlapping matches, so we scan manually and allow overlap.
+  const s = code;
+  for (let i = s.length - 24; i >= 0; i--) {
+    const candidate = s.slice(i, i + 24);
+    if (/^[0-9a-fA-F]{24}$/.test(candidate)) return candidate.toLowerCase();
+  }
+  return null;
 }
 
-export async function getAttendeeByCode(code: string): Promise<PublicAttendee | null> {
-  return ATTENDEES_BY_CODE[code] ?? null;
+type BackendTraining = {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  location: string;
+  mapsUrl?: string;
+  maxSlots: number;
+  confirmedCount: number;
+};
+
+type BackendAttendee = {
+  id: string;
+  name: string;
+  status: AttendeeStatus;
+};
+
+type BackendResponse = {
+  data: {
+    training: BackendTraining;
+    attendee: BackendAttendee;
+  };
+};
+
+function toDateISO(dateYYYYMMDD: string, timeHHmm: string): string {
+  // Interpret incoming date/time as UTC to keep UI formatting stable.
+  // Example: "2026-04-01" + "14:23" => "2026-04-01T14:23:00.000Z"
+  const normalizedTime = timeHHmm.match(/^(\d{2}):(\d{2})$/);
+  if (!normalizedTime) return new Date(dateYYYYMMDD).toISOString();
+  const [, hh, mm] = normalizedTime;
+  return new Date(`${dateYYYYMMDD}T${hh}:${mm}:00.000Z`).toISOString();
 }
 
 export async function getPublicConfirmationData(
-  code: string
+  attendeeId: string
 ): Promise<PublicConfirmationData | null> {
-  const [training, attendee] = await Promise.all([getTrainingByCode(code), getAttendeeByCode(code)]);
-  if (!training || !attendee) return null;
-  return { training, attendee };
+  const baseUrlRaw = process.env.BASE_URL_BACKEND;
+  if (!baseUrlRaw) return null;
+  const baseUrl = baseUrlRaw.replace(/\/+$/, "/"); // Ensure exactly one trailing slash.
+
+  try {
+    const res = await fetch(`${baseUrl}trainings/attendees/${attendeeId}`, {
+      method: "GET",
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!res.ok) return null;
+
+    const json = (await res.json()) as BackendResponse;
+    const training = json?.data?.training;
+    const attendee = json?.data?.attendee;
+    if (!training || !attendee) return null;
+
+    const timeHours = training.time.split(":")[0] ?? "";
+    if (!timeHours) return null;
+
+    return {
+      training: {
+        name: training.name,
+        dateISO: toDateISO(training.date, training.time),
+        timeHours,
+        location: training.location,
+        mapsUrl: training.mapsUrl,
+        maxSlots: training.maxSlots,
+        confirmedSlots: training.confirmedCount,
+      },
+      attendee: {
+        name: attendee.name,
+        status: attendee.status,
+      },
+    };
+  } catch {
+    return null;
+  }
 }
 
