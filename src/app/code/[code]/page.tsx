@@ -13,6 +13,7 @@ export default async function CodePage({
 }) {
   const { code } = await params;
   const attendeeId = normalizeAttendeeId(code);
+  console.log({attendeeId});
   if (!attendeeId) notFound();
 
   const data: PublicConfirmationData | null = await getPublicConfirmationData(attendeeId);

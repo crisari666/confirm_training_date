@@ -31,8 +31,6 @@ export default function PublicConfirmation({
   const [customReason, setCustomReason] = React.useState("");
   const [submitted, setSubmitted] = React.useState(false);
   const [action, setAction] = React.useState<Action | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [submitError, setSubmitError] = React.useState<string | null>(null);
   const training = initialData.training;
   const attendee = initialData.attendee;
 
@@ -52,7 +50,7 @@ export default function PublicConfirmation({
 
   if (attendee.status !== "pending" && !previewMode) {
     return (
-      <PublicConfirmationAlreadyResponded />
+      <PublicConfirmationAlreadyResponded onPreview={() => setPreviewMode(true)} />
     );
   }
 
@@ -71,50 +69,16 @@ export default function PublicConfirmation({
     );
   }
 
-  const handleConfirm = async () => {
-    setSubmitError(null);
-    setIsSubmitting(true);
-    try {
-      const res = await fetch(`/api/trainings/attendees/${attendee.id}/accept`, {
-        method: "POST",
-      });
-      if (!res.ok) {
-        setSubmitError("No se pudo confirmar tu asistencia. Inténtalo de nuevo.");
-        return;
-      }
-      setAction("confirmed");
-      setSubmitted(true);
-    } catch {
-      setSubmitError("No se pudo confirmar tu asistencia. Inténtalo de nuevo.");
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleConfirm = () => {
+    setAction("confirmed");
+    setSubmitted(true);
   };
 
-  const handleDecline = async () => {
+  const handleDecline = () => {
     const reason = selectedReason === "Otro" ? customReason.trim() : selectedReason;
     if (!reason) return;
-    setSubmitError(null);
-    setIsSubmitting(true);
-    try {
-      const res = await fetch(`/api/trainings/attendees/${attendee.id}/decline`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ reason }),
-      });
-      if (!res.ok) {
-        setSubmitError("No se pudo registrar tu respuesta. Inténtalo de nuevo.");
-        return;
-      }
-      setAction("declined");
-      setSubmitted(true);
-    } catch {
-      setSubmitError("No se pudo registrar tu respuesta. Inténtalo de nuevo.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    setAction("declined");
+    setSubmitted(true);
   };
 
   return (
@@ -150,31 +114,21 @@ export default function PublicConfirmation({
 
         <p className="text-xs text-zinc-600 dark:text-zinc-300 mb-5">
           Quedan{" "}
-          <span className="font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{slotsAvailable}</span> cupos disponibles.
+          <span className="font-semibold text-zinc-900 dark:text-zinc-50 tabular-nums">{7}</span> cupos disponibles.
         </p>
-        {submitError ? (
-          <p className="mb-4 rounded-lg border border-rose-300/60 bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200">
-            {submitError}
-          </p>
-        ) : null}
 
         {!showDeclineReasons ? (
           <div className="space-y-2.5">
             <button
               type="button"
               onClick={handleConfirm}
-              disabled={isSubmitting}
-              className={[
-                "w-full py-6 rounded-xl text-white font-semibold text-base transition-colors",
-                isSubmitting ? "bg-indigo-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700",
-              ].join(" ")}
+              className="w-full py-6 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-base transition-colors"
             >
-              {isSubmitting ? "Enviando..." : "Sí, asistiré"}
+              Sí, asistiré
             </button>
             <button
               type="button"
               onClick={() => setShowDeclineReasons(true)}
-              disabled={isSubmitting}
               className="w-full py-6 rounded-xl bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 text-base font-semibold text-zinc-600 dark:text-zinc-200 border border-zinc-200/70 dark:border-zinc-800 transition-colors"
             >
               No puedo ir
@@ -192,7 +146,6 @@ export default function PublicConfirmation({
                     key={reason}
                     type="button"
                     onClick={() => setSelectedReason(reason)}
-                    disabled={isSubmitting}
                     className={[
                       "w-full text-left px-4 py-3 rounded-xl border text-sm transition-all",
                       isSelected
@@ -212,7 +165,6 @@ export default function PublicConfirmation({
                 onChange={(e) => setCustomReason(e.target.value)}
                 placeholder="Cuéntanos el motivo..."
                 rows={3}
-                disabled={isSubmitting}
                 className="mt-2 w-full resize-none rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-4 py-3 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
             ) : null}
@@ -225,7 +177,6 @@ export default function PublicConfirmation({
                   setSelectedReason("");
                   setCustomReason("");
                 }}
-                disabled={isSubmitting}
                 className="flex-1 rounded-xl border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
               >
                 Volver
@@ -233,15 +184,15 @@ export default function PublicConfirmation({
               <button
                 type="button"
                 onClick={handleDecline}
-                disabled={isSubmitting || !selectedReason || (selectedReason === "Otro" && !customReason.trim())}
+                disabled={!selectedReason || (selectedReason === "Otro" && !customReason.trim())}
                 className={[
                   "flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition-colors",
-                  isSubmitting || !selectedReason || (selectedReason === "Otro" && !customReason.trim())
+                  !selectedReason || (selectedReason === "Otro" && !customReason.trim())
                     ? "bg-zinc-300 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 cursor-not-allowed"
                     : "bg-rose-600 hover:bg-rose-700 text-white",
                 ].join(" ")}
               >
-                {isSubmitting ? "Enviando..." : "Confirmar"}
+                Confirmar
               </button>
             </div>
           </div>
