@@ -33,6 +33,7 @@ export default function PublicConfirmation({
   const [action, setAction] = React.useState<Action | null>(null);
   const training = initialData.training;
   const attendee = initialData.attendee;
+  
 
   const dateParts = React.useMemo(() => {
     const date = new Date(training.dateISO);
@@ -101,15 +102,23 @@ export default function PublicConfirmation({
             <IconClock className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
             <span>{training.timeHours} hrs</span>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <IconMapPin className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-            <span className="truncate">{training.location}</span>
-            {training.mapsUrl ? (
-              <a href={training.mapsUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-700 dark:text-indigo-300 hover:underline ml-auto">
-                <IconExternalLink className="h-4 w-4" />
-              </a>
-            ) : null}
-          </div>
+          {training.mapsUrl ? (
+            <a
+              href={training.mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm min-w-0 rounded-lg -mx-1 px-1 py-0.5 text-indigo-700 dark:text-indigo-300 hover:underline focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
+            >
+              <IconMapPin className="h-4 w-4 shrink-0 opacity-90" />
+              <span className="truncate flex-1 min-w-0">{training.location}</span>
+              <IconExternalLink className="h-4 w-4 shrink-0" aria-hidden />
+            </a>
+          ) : (
+            <div className="flex items-center gap-2 text-sm min-w-0">
+              <IconMapPin className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+              <span className="truncate">{training.location}</span>
+            </div>
+          )}
         </div>
 
         <p className="text-xs text-zinc-600 dark:text-zinc-300 mb-5">

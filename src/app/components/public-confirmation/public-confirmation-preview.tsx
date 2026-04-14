@@ -46,20 +46,23 @@ export function PublicConfirmationPreview({
           <IconClock className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
           <span>{timeHours} hrs</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200 mb-4">
-          <IconMapPin className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
-          <span className="truncate">{location}</span>
-          {mapsUrl ? (
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-indigo-700 dark:text-indigo-300 hover:underline ml-auto"
-            >
-              <IconExternalLink className="h-4 w-4" />
-            </a>
-          ) : null}
-        </div>
+        {mapsUrl ? (
+          <a
+            href={mapsUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-sm min-w-0 mb-4 rounded-lg -mx-1 px-1 py-0.5 text-indigo-700 dark:text-indigo-300 hover:underline focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
+          >
+            <IconMapPin className="h-4 w-4 shrink-0 opacity-90" />
+            <span className="truncate flex-1 min-w-0">{location}</span>
+            <IconExternalLink className="h-4 w-4 shrink-0" aria-hidden />
+          </a>
+        ) : (
+          <div className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-200 mb-4 min-w-0">
+            <IconMapPin className="h-4 w-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+            <span className="truncate">{location}</span>
+          </div>
+        )}
 
         <button
           type="button"
